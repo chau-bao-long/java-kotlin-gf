@@ -22,3 +22,18 @@ GoToFile ['e'|'tabnew'|'sp'|'vs']
 ```vim
 GradleSyncSource
 ```
+## Configuration
+- Add more src path and test path to allow gf to detect file 
+```vim
+let g:srcPath = [
+      \ "/app/src/main/kotlin/",
+      \ "/app/src/test/kotlin/",
+      \ "/src/main/kotlin/",
+      \ "/src/test/kotlin/",
+      \ ]
+```
+
+- Change where to keep extracted source lib
+```vim
+let g:libPath = "~/.gradle/src"
+```
