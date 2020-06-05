@@ -27,7 +27,11 @@ function! gf#openFile(...)
     return
   endif
 
-  call s:jumpToFileByFuzzySearch(command, g:libPath)
+  if s:jumpToFileByFuzzySearch(command, g:libPath)
+    return
+  endif
+
+  exe "silent! AnyJump"
 endfunction
 
 function s:jumpToExactMatchPath(command, projectPath)
@@ -137,7 +141,7 @@ function s:jumpToFileByFuzzySearch(command, path)
     let resultsFromFind = system(expand(l:queryStringFuzzyTheEnd))
     let results = split(resultsFromFind, "\n")
     if len(results) == 0
-      echom "Not found any source map with name: " . expand('<cword>')
+      return 0
     elseif len(results) == 1
       execute ":tabedit " results[0]
       execute a:command . ' ' . results[0]
@@ -151,6 +155,8 @@ function s:jumpToFileByFuzzySearch(command, path)
     " open a fuzzy finder helping user choose the file with type of 'CurrentWord*' which has more than 2 results found
     call fzf#run(fzf#wrap({'source': expand(l:queryStringExactName)}))
   endif
+  
+  return 1
 endfunction
 
 fu s:isLowerCase(word)
