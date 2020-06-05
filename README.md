@@ -3,6 +3,18 @@ Improve go to file (gf) experience on java/kotlin project
 
 ## Installation
 
+### Dependencies
+This plugin work best when combine with these plugins:
+- Fzf
+```vim
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+Plug 'junegunn/fzf.vim'
+```
+- AnyJump
+```vim
+Plug 'pechorin/any-jump.vim'
+```
+
 ### Using [vim-plug](https://github.com/junegunn/vim-plug)
 ```vim
 Plug 'chau-bao-long/java-kotlin-gf'
