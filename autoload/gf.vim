@@ -1,4 +1,6 @@
 function! gf#openFile(...)
+  exe "silent! Rooter"
+
   let command = get(a:, 1, 'e')
   let projectPath = getcwd()
 
@@ -15,6 +17,14 @@ function! gf#openFile(...)
     if s:jumpToExactMatchPath(command, projectPath)
       return
     endif
+  endif
+
+  if s:jumpToMethod(command, projectPath)
+    return
+  endif
+
+  if s:anyJumpToFile(projectPath)
+    return
   endif
 
   call s:jumpToFileByFuzzySearch(command, g:libPath)
@@ -43,6 +53,61 @@ function s:jumpToExactMatchPath(command, projectPath)
 
   return 0
 endfunction
+
+fu s:jumpToMethod(command, projectPath)
+  let words = split(getline('.'), '\W\+') " [import, org, spring, http, HttpStatus, methodName]
+  let isMethod = s:isLowerCase(words[-1])
+  let isMethodInFile = !s:isLowerCase(words[-2])
+
+  if !isMethod || !isMethodInFile
+    return 0
+  endif
+
+  let relativeSourcePath  = join(words[1:-2], '/') " words[1:-2] to remove the import word: org, spring, http, HttpStatus, methodName => result: org/spring/http/HttpStatus
+
+  let paths = [
+        \ g:libPath . "/" . relativeSourcePath . '.java',
+        \ g:libPath . "/" . relativeSourcePath . '.kt',
+        \ ]
+
+  for srcPath in g:srcPath
+    call add(paths, a:projectPath . srcPath . relativeSourcePath . '.java')
+    call add(paths, a:projectPath . srcPath . relativeSourcePath . '.kt')
+  endfor
+
+  for path in paths
+    if filereadable(expand(l:path))
+      echo path
+      exe a:command . ' ' . path
+      exe "silent! normal! /" . words[-1] . "(.*).*[=|{]\<cr>"
+      return 1
+    endif 
+  endfor
+
+  return 1
+endfu
+
+fu s:anyJumpToFile(projectPath)
+  let words = split(getline('.'), '\W\+') " [import, org, spring, http, HttpStatus]
+  let folderPath  = join(words[1:-2], '/') " words[1:-2] to remove the import word and file name => result: org/spring/http
+
+  let paths = [ g:libPath . "/" . folderPath ]
+
+  for srcPath in g:srcPath
+    call add(paths, a:projectPath . srcPath . folderPath)
+  endfor
+
+  for path in paths
+    if isdirectory(path)
+      exe 'cd' path
+      exe "silent! normal! $"
+      AnyJump
+      return 1
+    endif
+  endfor
+
+  return 0
+endfu
 
 function s:jumpToFileInSamePackage(command)
   let javaPath = expand("%:p:h") . '/' . expand('<cword>') . '.java'
@@ -88,3 +153,6 @@ function s:jumpToFileByFuzzySearch(command, path)
   endif
 endfunction
 
+fu s:isLowerCase(word)
+  return char2nr(a:word[0]) != char2nr(toupper(a:word[0]))
+endfu

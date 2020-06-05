@@ -4,7 +4,7 @@ let g:srcPath = [
       \ "/src/main/kotlin/",
       \ "/src/test/kotlin/",
       \ ]
-let g:libPath = "~/.gradle/src"
+let g:libPath = $HOME . "/.gradle/src"
 let s:bin_dir = expand('<sfile>:h:h').'/bin/'
 
 command! -nargs=? -bar GoToFile call gf#openFile(<f-args>)
