@@ -81,7 +81,6 @@ fu s:jumpToMethod(command, projectPath)
 
   for path in paths
     if filereadable(expand(l:path))
-      echo path
       exe a:command . ' ' . path
       exe "silent! normal! /" . words[-1] . "(.*).*[=|{]\<cr>"
       return 1
