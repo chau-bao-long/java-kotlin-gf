@@ -23,10 +23,6 @@ function! gf#openFile(...)
     return
   endif
 
-  if s:anyJumpToFile(projectPath)
-    return
-  endif
-
   if s:jumpToFileByFuzzySearch(command, g:libPath)
     return
   endif
@@ -88,28 +84,6 @@ fu s:jumpToMethod(command, projectPath)
   endfor
 
   return 1
-endfu
-
-fu s:anyJumpToFile(projectPath)
-  let words = split(getline('.'), '\W\+') " [import, org, spring, http, HttpStatus]
-  let folderPath  = join(words[1:-2], '/') " words[1:-2] to remove the import word and file name => result: org/spring/http
-
-  let paths = [ g:libPath . "/" . folderPath ]
-
-  for srcPath in g:srcPath
-    call add(paths, a:projectPath . srcPath . folderPath)
-  endfor
-
-  for path in paths
-    if isdirectory(path)
-      exe 'cd' path
-      exe "silent! normal! $"
-      AnyJump
-      return 1
-    endif
-  endfor
-
-  return 0
 endfu
 
 function s:jumpToFileInSamePackage(command)
