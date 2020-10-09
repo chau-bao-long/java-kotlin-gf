@@ -21,7 +21,11 @@ Plug 'chau-bao-long/java-kotlin-gf'
 ```
 
 ## Quick Start
-Run GradleSyncSource command first, and gf or gF to see the magic
+```vimscript
+nmap gf :GoToFile<cr>
+nmap gT :GoToFile tabedit<cr>
+```
+Run GradleSyncSource command first, and gf or gT to see the magic
 
 ## Commands
 
