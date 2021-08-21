@@ -5,7 +5,9 @@ local function find_in_file(cur_word)
   for i = 1, vim.fn.line("$"), 1 do
     local l = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
 
-    if string.match(l, "[class|interface]* " .. cur_word) ~= nil then
+    if string.find(l, "class " .. cur_word) ~= nil
+      or string.find(l, "interface " .. cur_word) ~= nil
+    then
       return i
     end
   end
@@ -47,9 +49,7 @@ local function find_import_line(word)
   for i = 1, vim.fn.line("$"), 1 do
     local line = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
 
-    local found = string.find(line, "import")
-
-    if found == 1 and string.find(line, word) ~= nil then
+    if string.find(line, "import") == 1 and string.match(line, "[.]" .. word) ~= nil then
       return line
     end
   end
