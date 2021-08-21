@@ -29,6 +29,7 @@ local function try_to_jump(open_cmd, paths, word)
   return false
 end
 
+-- Try to find the file which is on the same package, because java file doesn't need to import that file
 local function jump_file_same_package(open_cmd)
   local cur_dir = vim.fn.expand("%:p:h")
   local cur_word = vim.fn.expand("<cword>")
@@ -92,6 +93,7 @@ local function convert_import_line_to_folder_path(line, project_path)
   return paths
 end
 
+-- Find the file in possible paths, if file exists, open the file and jump the correct line
 local function jump_to_exact_match_path(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
   local project_path = vim.fn.getcwd(0)
@@ -105,7 +107,8 @@ local function jump_to_exact_match_path(open_cmd)
   return try_to_jump(open_cmd, paths, cur_word)
 end
 
-local function jump_to_class_or_function_in_path(open_cmd)
+-- Find class or interface in the folder by name, ripgrep search, open the file and jump to correct line
+local function jump_to_class_interface_in_path(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
   local project_path = vim.fn.getcwd(0)
 
@@ -149,7 +152,7 @@ function M.open_file(...)
 
   is_opened = is_opened or jump_file_same_package(open_cmd)
   is_opened = is_opened or jump_to_exact_match_path(open_cmd)
-  is_opened = is_opened or jump_to_class_or_function_in_path(open_cmd)
+  is_opened = is_opened or jump_to_class_interface_in_path(open_cmd)
 end
 
 return M
