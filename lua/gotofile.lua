@@ -1,7 +1,7 @@
 local utils = require("utils")
 local M = {}
 
-local function find_in_file(cur_word)
+local function find_class_inteface_in_file(cur_word)
   for i = 1, vim.fn.line("$"), 1 do
     local l = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
 
@@ -12,14 +12,26 @@ local function find_in_file(cur_word)
     end
   end
 
-  return 0
+  return nil
+end
+
+local function find_word_in_file(cur_word)
+  for i = 1, vim.fn.line("$"), 1 do
+    local l = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
+
+    if string.find(l, cur_word) ~= nil then
+      return i
+    end
+  end
+
+  return nil
 end
 
 local function try_to_jump(open_cmd, paths, word)
   for _, path in ipairs(paths) do
     if utils.file_exists(path) then
       vim.cmd(open_cmd .. " " .. path)
-      local found_line = find_in_file(word)
+      local found_line = find_class_inteface_in_file(word) or find_word_in_file(word)
       vim.cmd(tostring(found_line))
 
       return true
@@ -58,37 +70,38 @@ local function find_import_line(word)
   return nil
 end
 
-local function convert_import_line_to_file_path(line, project_path)
+-- The file can be in library or project, try to build file path using all possible source location
+local function build_paths(paths, file_path)
+  local project_path = vim.fn.getcwd(0)
+
+  table.insert(paths, vim.g.libPath .. "/" .. file_path)
+
+  for _, src_path in ipairs(vim.g.srcPath) do
+    table.insert(paths, project_path .. src_path .. file_path)
+  end
+end
+
+local function convert_import_line_to_file_path(line)
   local words = vim.fn.split(line, [[\W\+]])
   table.remove(words, 1)
   local relative_path = table.concat(words, "/")
+
   local paths = {}
 
-  table.insert(paths, vim.g.libPath .. "/" .. relative_path .. ".java")
-  table.insert(paths, vim.g.libPath .. "/" .. relative_path .. ".kt")
-
-  for _, src_path in ipairs(vim.g.srcPath) do
-    table.insert(paths, project_path .. src_path .. relative_path .. ".java")
-    table.insert(paths, project_path .. src_path .. relative_path .. ".kt")
-  end
+  build_paths(paths, relative_path .. ".kt")
+  build_paths(paths, relative_path .. ".java")
 
   return paths
 end
 
-local function convert_import_line_to_folder_path(line, project_path)
+local function convert_import_line_to_folder_path(line)
   local words = vim.fn.split(line, [[\W\+]])
   table.remove(words, #words)
   table.remove(words, 1)
   local relative_path = table.concat(words, "/")
   local paths = {}
 
-  table.insert(paths, vim.g.libPath .. "/" .. relative_path)
-  table.insert(paths, vim.g.libPath .. "/" .. relative_path)
-
-  for _, src_path in ipairs(vim.g.srcPath) do
-    table.insert(paths, project_path .. src_path .. relative_path)
-    table.insert(paths, project_path .. src_path .. relative_path)
-  end
+  build_paths(paths, relative_path)
 
   return paths
 end
@@ -96,13 +109,12 @@ end
 -- Find the file in possible paths, if file exists, open the file and jump the correct line
 local function jump_to_exact_match_path(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
-  local project_path = vim.fn.getcwd(0)
 
   local line = find_import_line(cur_word)
 
   if line == nil then return false end
 
-  local paths = convert_import_line_to_file_path(line, project_path)
+  local paths = convert_import_line_to_file_path(line)
 
   return try_to_jump(open_cmd, paths, cur_word)
 end
@@ -110,13 +122,12 @@ end
 -- Find class or interface in the folder by name, ripgrep search, open the file and jump to correct line
 local function jump_to_class_interface_in_path(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
-  local project_path = vim.fn.getcwd(0)
 
   local line = find_import_line(cur_word)
 
   if line == nil then return false end
 
-  local paths = convert_import_line_to_folder_path(line, project_path)
+  local paths = convert_import_line_to_folder_path(line)
 
   for _, path in ipairs(paths) do
     if vim.fn.isdirectory(path) == 0 then
@@ -145,6 +156,31 @@ local function jump_to_class_interface_in_path(open_cmd)
   return false
 end
 
+local function convert_import_line_to_constant_file(line)
+  local words = vim.fn.split(line, [[\W\+]])
+  table.remove(words, #words)
+  table.remove(words, 1)
+  local file_path = table.concat(words, "/")
+  local paths = {}
+
+  build_paths(paths, file_path .. ".java")
+  build_paths(paths, file_path .. ".kt")
+
+  return paths
+end
+
+local function jump_to_constant(open_cmd)
+  local cur_word = vim.fn.expand("<cword>")
+
+  local line = find_import_line(cur_word)
+
+  if line == nil then return false end
+
+  local file_paths = convert_import_line_to_constant_file(line)
+
+  try_to_jump(open_cmd, file_paths, cur_word)
+end
+
 function M.open_file(...)
   local args = {...}
   local open_cmd = args[0] or "e"
@@ -153,6 +189,7 @@ function M.open_file(...)
   is_opened = is_opened or jump_file_same_package(open_cmd)
   is_opened = is_opened or jump_to_exact_match_path(open_cmd)
   is_opened = is_opened or jump_to_class_interface_in_path(open_cmd)
+  is_opened = is_opened or jump_to_constant(open_cmd)
 end
 
 return M
