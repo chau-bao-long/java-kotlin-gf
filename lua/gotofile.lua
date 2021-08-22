@@ -62,7 +62,7 @@ local function find_import_line(word)
   for i = 1, vim.fn.line("$"), 1 do
     local line = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
 
-    if string.find(line, "import") == 1 and string.match(line, "[.]" .. word) ~= nil then
+    if string.find(line, "import") == 1 and string.match(line, "[.]" .. word .. "$") ~= nil then
       return line
     end
   end
