@@ -188,9 +188,13 @@ local function jump_to_constant(open_cmd)
     return
   end
 
-  if cur_word == string.match(full_word, "[%u_.]+") then
+  local prev_i = string.find(full_word, cur_word) - 1
+  local prev_char = string.sub(full_word, prev_i, prev_i)
+
+  if prev_char ~= "." then
     -- the case when import the constant
     -- ex: import.domain.imports.models.ImportStatus.PENDING
+    -- const: PENDING
     local line = find_import_line(cur_word)
 
     if line == nil then return false end
@@ -201,11 +205,13 @@ local function jump_to_constant(open_cmd)
   else
     -- the case when import the class of constant
     -- ex: import.domain.imports.models.ImportStatus
+    -- const: ImportStatus.PENDING
 
-    -- full_word in form of "TestClass.ABC_DEF,"
+    -- full_word in form of "TestClass.ABC_DEF," or "Abc(TestClass.ABC_DEF)"
     local kw = vim.fn.split(full_word, [[\.]])
+    local class_name = string.gsub(kw[1], ".*[(]", "")
 
-    local line = find_import_line(kw[1])
+    local line = find_import_line(class_name)
 
     if line == nil then return false end
 
@@ -219,10 +225,13 @@ local function jump_to_top_level_method(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
 
   local line = find_import_line(cur_word)
+  local paths
 
-  if line == nil then return false end
-
-  local paths = convert_import_line_to_folder_path(line)
+  if line == nil then
+    paths = {vim.fn.expand("%:p:h")}
+  else
+    paths = convert_import_line_to_folder_path(line)
+  end
 
   for _, path in ipairs(paths) do
     if vim.fn.isdirectory(path) == 0 then
