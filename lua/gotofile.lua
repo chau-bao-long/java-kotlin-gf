@@ -64,6 +64,7 @@ local function jump_file_same_package(open_cmd)
   return try_to_jump(open_cmd, paths, cur_word)
 end
 
+-- Loop through all lines in file, try to find the line with import pattern "import ... word$"
 local function find_import_line(word)
   for i = 1, vim.fn.line("$"), 1 do
     local line = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
@@ -130,17 +131,20 @@ local function jump_to_class_interface_in_path(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
 
   local line = find_import_line(cur_word)
+  local paths
 
-  if line == nil then return false end
-
-  local paths = convert_import_line_to_folder_path(line)
+  if line == nil then
+    paths = {vim.fn.expand("%:p:h")}
+  else
+    paths = convert_import_line_to_folder_path(line)
+  end
 
   for _, path in ipairs(paths) do
     if vim.fn.isdirectory(path) == 0 then
       goto skip_to_next
     end
 
-    local response = vim.fn.system('rg -n "(class|interface) ' .. cur_word .. '[( {]" ' .. path)
+    local response = vim.fn.system('rg -n "(class|interface) ' .. cur_word .. '[<( {]" ' .. path)
 
     if response ~= "" then
       local results = vim.fn.split(response, "\n")
