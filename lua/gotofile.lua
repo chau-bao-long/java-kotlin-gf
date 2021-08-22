@@ -1,4 +1,5 @@
 local utils = require("utils")
+local fzf = require("fzf")
 local M = {}
 
 local function find_class_inteface_in_file(cur_word)
@@ -205,6 +206,61 @@ local function jump_to_constant(open_cmd)
   end
 end
 
+local function jump_to_top_level_method(open_cmd)
+  local cur_word = vim.fn.expand("<cword>")
+
+  local line = find_import_line(cur_word)
+
+  if line == nil then return false end
+
+  local paths = convert_import_line_to_folder_path(line)
+
+  for _, path in ipairs(paths) do
+    if vim.fn.isdirectory(path) == 0 then
+      goto skip_to_next
+    end
+
+    local response = vim.fn.system('rg -n "fun .*' .. cur_word .. '\\(" ' .. path)
+
+    if response ~= "" then
+      local results = vim.fn.split(response, "\n")
+
+      local pickable = {}
+      local data = {}
+
+      for i, result in ipairs(results) do
+        local sp = vim.fn.split(result, ":")
+        table.insert(data, sp)
+        local file = sp[1]
+        local sample_code = string.gsub(sp[3], "%s+", "")
+        file = string.gsub(file, utils.esc(vim.fn.getcwd(0)), "")
+        for _, src_path in ipairs(vim.g.srcPath) do
+          file = string.gsub(file, utils.esc(src_path), "")
+        end
+        table.insert(pickable, i .. ".  " .. sample_code .. "        " .. file)
+      end
+
+      if #data == 1 then
+        local line_no = data[1][2]
+        local file_path = data[1][1]
+
+        vim.cmd(open_cmd .. " +" .. line_no .. " " .. file_path)
+      else
+        coroutine.wrap(function()
+          local r = fzf.fzf(pickable, "--ansi", { width = 150, height = 30, })[1]
+          local i = tonumber(string.sub(r, 1, 1))
+          local line_no = data[i][2]
+          local file_path = data[i][1]
+
+          vim.cmd(open_cmd .. " +" .. line_no .. " " .. file_path)
+        end)()
+      end
+    end
+
+    ::skip_to_next::
+  end
+end
+
 function M.open_file(...)
   local args = {...}
   local open_cmd = args[0] or "e"
@@ -214,6 +270,7 @@ function M.open_file(...)
   is_opened = is_opened or jump_to_exact_match_path(open_cmd)
   is_opened = is_opened or jump_to_class_interface_in_path(open_cmd)
   is_opened = is_opened or jump_to_constant(open_cmd)
+  is_opened = is_opened or jump_to_top_level_method(open_cmd)
 end
 
 return M

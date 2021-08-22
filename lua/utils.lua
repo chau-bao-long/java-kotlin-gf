@@ -5,4 +5,19 @@ function M.file_exists(name)
    return f ~= nil and io.close(f)
 end
 
+function M.esc(x)
+  return (x:gsub('%%', '%%%%')
+    :gsub('^%^', '%%^')
+    :gsub('%$$', '%%$')
+    :gsub('%(', '%%(')
+    :gsub('%)', '%%)')
+    :gsub('%.', '%%.')
+    :gsub('%[', '%%[')
+    :gsub('%]', '%%]')
+    :gsub('%*', '%%*')
+    :gsub('%+', '%%+')
+    :gsub('%-', '%%-')
+    :gsub('%?', '%%?'))
+end
+
 return M
