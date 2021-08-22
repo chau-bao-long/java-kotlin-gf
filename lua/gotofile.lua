@@ -2,12 +2,14 @@ local utils = require("utils")
 local fzf = require("fzf")
 local M = {}
 
-local function find_class_inteface_in_file(cur_word)
+-- Loop through every lines in current buffer
+-- Find the first line contains the class or interface with given name
+local function find_class_inteface_in_file(word)
   for i = 1, vim.fn.line("$"), 1 do
     local l = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
 
-    if string.find(l, "class " .. cur_word) ~= nil
-      or string.find(l, "interface " .. cur_word) ~= nil
+    if string.find(l, "class " .. word) ~= nil
+      or string.find(l, "interface " .. word) ~= nil
     then
       return i
     end
@@ -16,11 +18,13 @@ local function find_class_inteface_in_file(cur_word)
   return nil
 end
 
-local function find_word_in_file(cur_word)
+-- Loop through every lines in current buffer
+-- Find the first line contains the word
+local function find_word_in_file(word)
   for i = 1, vim.fn.line("$"), 1 do
     local l = vim.fn.getbufline(vim.fn.bufnr(), i)[1]
 
-    if string.find(l, cur_word) ~= nil then
+    if string.find(l, word) ~= nil then
       return i
     end
   end
@@ -28,6 +32,7 @@ local function find_word_in_file(cur_word)
   return nil
 end
 
+-- Jump to the file at exact line if the file is existed
 local function try_to_jump(open_cmd, paths, word)
   for _, path in ipairs(paths) do
     if utils.file_exists(path) then
@@ -220,6 +225,7 @@ local function jump_to_top_level_method(open_cmd)
       goto skip_to_next
     end
 
+    -- Ripgrep search the function in file path
     local response = vim.fn.system('rg -n "fun .*' .. cur_word .. '\\(" ' .. path)
 
     if response ~= "" then
@@ -228,6 +234,7 @@ local function jump_to_top_level_method(open_cmd)
       local pickable = {}
       local data = {}
 
+      -- Build data and pickable options for fuzzy search
       for i, result in ipairs(results) do
         local sp = vim.fn.split(result, ":")
         table.insert(data, sp)
@@ -241,11 +248,13 @@ local function jump_to_top_level_method(open_cmd)
       end
 
       if #data == 1 then
+        -- Jump to file directly if there is only one result
         local line_no = data[1][2]
         local file_path = data[1][1]
 
         vim.cmd(open_cmd .. " +" .. line_no .. " " .. file_path)
       else
+        -- Use fuzzy search if there are many possible results
         coroutine.wrap(function()
           local r = fzf.fzf(pickable, "--ansi", { width = 150, height = 30, })[1]
           local i = tonumber(string.sub(r, 1, 1))
