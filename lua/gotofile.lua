@@ -179,6 +179,48 @@ local function convert_import_line_to_constant_file(line)
   return paths
 end
 
+-- Handle the response from ripgrep
+-- Ex: subscription/infrastructure/Logger.kt:63: const val COMPANY_ID_LOG_KEY = "company_id"\n
+local function fzf_pick_from_rg_response(open_cmd, response)
+  if response ~= "" then
+    local results = vim.fn.split(response, "\n")
+
+    local pickable = {}
+    local data = {}
+
+    -- Build data and pickable options for fuzzy search
+    for i, result in ipairs(results) do
+      local sp = vim.fn.split(result, ":")
+      table.insert(data, sp)
+      local file = sp[1]
+      local sample_code = string.gsub(sp[3], "%s+", "")
+      file = string.gsub(file, utils.esc(vim.fn.getcwd(0)), "")
+      for _, src_path in ipairs(vim.g.srcPath) do
+        file = string.gsub(file, utils.esc(src_path), "")
+      end
+      table.insert(pickable, i .. ".  " .. sample_code .. "        " .. file)
+    end
+
+    if #data == 1 then
+      -- Jump to file directly if there is only one result
+      local line_no = data[1][2]
+      local file_path = data[1][1]
+
+      vim.cmd(open_cmd .. " +" .. line_no .. " " .. file_path)
+    else
+      -- Use fuzzy search if there are many possible results
+      coroutine.wrap(function()
+        local r = fzf.fzf(pickable, "--ansi", { width = 150, height = 30, })[1]
+        local i = tonumber(string.sub(r, 1, 1))
+        local line_no = data[i][2]
+        local file_path = data[i][1]
+
+        vim.cmd(open_cmd .. " +" .. line_no .. " " .. file_path)
+      end)()
+    end
+  end
+end
+
 local function jump_to_constant(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
   local full_word = vim.fn.expand("<cWORD>")
@@ -197,11 +239,17 @@ local function jump_to_constant(open_cmd)
     -- const: PENDING
     local line = find_import_line(cur_word)
 
-    if line == nil then return false end
+    if line == nil then
+      local path = vim.fn.expand("%:p:h")
 
-    local file_paths = convert_import_line_to_constant_file(line)
+      local response = vim.fn.system('rg -n "val ' .. cur_word .. '" ' .. path)
 
-    try_to_jump(open_cmd, file_paths, cur_word)
+      fzf_pick_from_rg_response(open_cmd, response)
+    else
+      local file_paths = convert_import_line_to_constant_file(line)
+
+      return try_to_jump(open_cmd, file_paths, cur_word)
+    end
   else
     -- the case when import the class of constant
     -- ex: import.domain.imports.models.ImportStatus
@@ -210,14 +258,21 @@ local function jump_to_constant(open_cmd)
     -- full_word in form of "TestClass.ABC_DEF," or "Abc(TestClass.ABC_DEF)"
     local kw = vim.fn.split(full_word, [[\.]])
     local class_name = string.gsub(kw[1], ".*[(]", "")
+    local constant = string.match(kw[2], "[%u_]+")
 
     local line = find_import_line(class_name)
 
-    if line == nil then return false end
+    if line == nil then
+      local path = vim.fn.expand("%:p:h")
 
-    local file_paths = convert_import_line_to_file_path(line)
+      local response = vim.fn.system('rg -n "val ' .. cur_word .. '" ' .. path)
 
-    try_to_jump(open_cmd, file_paths, string.match(kw[2], "[%u_]+"))
+      fzf_pick_from_rg_response(open_cmd, response)
+    else
+      local file_paths = convert_import_line_to_file_path(line)
+
+      return try_to_jump(open_cmd, file_paths, constant)
+    end
   end
 end
 
@@ -241,43 +296,7 @@ local function jump_to_top_level_method(open_cmd)
     -- Ripgrep search the function in file path
     local response = vim.fn.system('rg -n "fun .*' .. cur_word .. '\\(" ' .. path)
 
-    if response ~= "" then
-      local results = vim.fn.split(response, "\n")
-
-      local pickable = {}
-      local data = {}
-
-      -- Build data and pickable options for fuzzy search
-      for i, result in ipairs(results) do
-        local sp = vim.fn.split(result, ":")
-        table.insert(data, sp)
-        local file = sp[1]
-        local sample_code = string.gsub(sp[3], "%s+", "")
-        file = string.gsub(file, utils.esc(vim.fn.getcwd(0)), "")
-        for _, src_path in ipairs(vim.g.srcPath) do
-          file = string.gsub(file, utils.esc(src_path), "")
-        end
-        table.insert(pickable, i .. ".  " .. sample_code .. "        " .. file)
-      end
-
-      if #data == 1 then
-        -- Jump to file directly if there is only one result
-        local line_no = data[1][2]
-        local file_path = data[1][1]
-
-        vim.cmd(open_cmd .. " +" .. line_no .. " " .. file_path)
-      else
-        -- Use fuzzy search if there are many possible results
-        coroutine.wrap(function()
-          local r = fzf.fzf(pickable, "--ansi", { width = 150, height = 30, })[1]
-          local i = tonumber(string.sub(r, 1, 1))
-          local line_no = data[i][2]
-          local file_path = data[i][1]
-
-          vim.cmd(open_cmd .. " +" .. line_no .. " " .. file_path)
-        end)()
-      end
-    end
+    fzf_pick_from_rg_response(open_cmd, response)
 
     ::skip_to_next::
   end
