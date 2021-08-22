@@ -171,14 +171,38 @@ end
 
 local function jump_to_constant(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
+  local full_word = vim.fn.expand("<cWORD>")
 
-  local line = find_import_line(cur_word)
+  -- Check contants pattern, return if not
+  if string.match(cur_word, "[%u_]+") ~= cur_word then
+    return
+  end
 
-  if line == nil then return false end
+  if cur_word == string.match(full_word, "[%u_.]+") then
+    -- the case when import the constant
+    -- ex: import.domain.imports.models.ImportStatus.PENDING
+    local line = find_import_line(cur_word)
 
-  local file_paths = convert_import_line_to_constant_file(line)
+    if line == nil then return false end
 
-  try_to_jump(open_cmd, file_paths, cur_word)
+    local file_paths = convert_import_line_to_constant_file(line)
+
+    try_to_jump(open_cmd, file_paths, cur_word)
+  else
+    -- the case when import the class of constant
+    -- ex: import.domain.imports.models.ImportStatus
+
+    -- full_word in form of "TestClass.ABC_DEF,"
+    local kw = vim.fn.split(full_word, [[\.]])
+
+    local line = find_import_line(kw[1])
+
+    if line == nil then return false end
+
+    local file_paths = convert_import_line_to_file_path(line)
+
+    try_to_jump(open_cmd, file_paths, string.match(kw[2], "[%u_]+"))
+  end
 end
 
 function M.open_file(...)
