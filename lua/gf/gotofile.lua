@@ -1,4 +1,4 @@
-local utils = require("utils")
+local utils = require("gf/utils")
 local fzf = require("fzf")
 local M = {}
 
@@ -166,6 +166,18 @@ local function jump_to_class_interface_in_path(open_cmd)
   return false
 end
 
+local function convert_import_line_to_package_paths(import_line)
+  local words = vim.fn.split(import_line, [[\W\+]])
+  table.remove(words, #words)
+  table.remove(words, 1)
+  local file_path = table.concat(words, "/")
+  local paths = {}
+
+  build_paths(paths, file_path)
+
+  return paths
+end
+
 local function convert_import_line_to_constant_file(line)
   local words = vim.fn.split(line, [[\W\+]])
   table.remove(words, #words)
@@ -221,6 +233,18 @@ local function fzf_pick_from_rg_response(open_cmd, response)
   end
 end
 
+local function filter_existing_folders(folders)
+  local result = {}
+
+  for _, folder in ipairs(folders) do
+    if vim.fn.isdirectory(folder) == 1 then
+      table.insert(result,folder)
+    end
+  end
+
+  return result
+end
+
 local function jump_to_constant(open_cmd)
   local cur_word = vim.fn.expand("<cword>")
   local full_word = vim.fn.expand("<cWORD>")
@@ -248,7 +272,17 @@ local function jump_to_constant(open_cmd)
     else
       local file_paths = convert_import_line_to_constant_file(line)
 
-      return try_to_jump(open_cmd, file_paths, cur_word)
+      local found = try_to_jump(open_cmd, file_paths, cur_word)
+
+      if not found then
+        local package_paths = convert_import_line_to_package_paths(line)
+        local existing_folders = filter_existing_folders(package_paths)
+        local search_folders = table.concat(existing_folders, " ")
+
+        local response = vim.fn.system('rg -n "val ' .. cur_word .. '" ' .. search_folders)
+
+        fzf_pick_from_rg_response(open_cmd, response)
+      end
     end
   else
     -- the case when import the class of constant
